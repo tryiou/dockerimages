@@ -9,21 +9,25 @@ import urllib.request
 from jinja2 import Environment, FileSystemLoader
 from icecream import ic
 
+from build_config import get_build_config
+
 j2_env = Environment(loader=FileSystemLoader(''),
-                     trim_blocks=True)
+                     trim_blocks=True,
+                     lstrip_blocks=True)
 
 template = j2_env.get_template('Dockerfile.j2')
 readmetemplate = j2_env.get_template('README.md.j2')
 
 walletDict = {}
 
-buildOS = 'jammy'
-
 
 def load_template(template_url):
     """
-    load_template - downloads from url provided and returns the data
+    load_template - returns the data from a local file path or url provided
     """
+    if os.path.isfile(template_url):
+        with open(template_url) as f:
+            return f.read()
     while True:
         response = urllib.request.urlopen(template_url)
         if response.getcode() == 200:
@@ -54,45 +58,50 @@ if not manifest_config:
     WALLET_CONF_URL = config_path+'/wallet-confs/'
     #ic(MANIFEST_URL)
     #ic(WALLET_CONF_URL)
-    manifest_config = json.loads(load_template(MANIFEST_URL))
-    try: 
+    try:
         manifest_config = json.loads(load_template(MANIFEST_URL))
-    except:
-        print("Couldn't read manifest-latest.json, aborting.")
-        exit
+    except Exception as e:
+        print(f"Couldn't read manifest-latest.json: {e}")
+        sys.exit(1)
 else:
     manifest_config = json.loads(manifest_config)
 
 found = False
 for blockchain in manifest_config:
-    if re.sub('\s+', '-', blockchain['blockchain'].lower()) == blockchain_name.lower():
-        if 'daemon_stem' in blockchain:
-            walletDaemon = blockchain['daemon_stem']
-        else:
-            walletDaemon = blockchain['conf_name'].split('.conf')[0]
-        if stem_only:
-            print(walletDaemon)
-            raise SystemExit
-        walletDaemon = walletDaemon + 'd'
-        walletConf = blockchain['wallet_conf']
-        walletName = re.sub('\s+', '-', blockchain['blockchain'].lower())
-        walletNameVerId = blockchain['ver_id']
-        walletGitTag = blockchain['ver_id'].split('--')
-        walletGitURL = blockchain['repo_url']
-        walletConfName = blockchain['conf_name']
-        walletLinuxDir = blockchain['dir_name_linux']
-        walletTicker = blockchain['ticker']
-        walletVerList = blockchain['versions']
-        testnetPort = '18332'
-        testnetRPC = '19332'
-        if wallet_version == "latest" or wallet_version == "":
-            walletVersion = walletVerList[-1]
-        else:
-            if wallet_version in walletVerList:
-                walletVersion = wallet_version
-                walletGitTag = walletVersion
-                walletNameVerId = walletVersion
-                found = True
+    if re.sub(r'\s+', '-', blockchain['blockchain'].lower()) != re.sub(r'\s+', '-', blockchain_name.lower()):
+        continue
+    if 'daemon_stem' in blockchain:
+        walletDaemon = blockchain['daemon_stem']
+    else:
+        walletDaemon = blockchain['conf_name'].split('.conf')[0]
+    if stem_only:
+        print(walletDaemon)
+        raise SystemExit
+    walletDaemon = walletDaemon + 'd'
+    walletConf = blockchain['wallet_conf']
+    walletName = re.sub(r'\s+', '-', blockchain['blockchain'].lower())
+    walletNameVerId = blockchain['ver_id']
+    walletGitURL = blockchain['repo_url']
+    walletConfName = blockchain['conf_name']
+    walletLinuxDir = blockchain['dir_name_linux']
+    build_cfg = get_build_config(walletLinuxDir)
+    walletTicker = blockchain['ticker']
+    walletVerList = blockchain['versions']
+    testnetPort = '18332'
+    testnetRPC = '19332'
+    if wallet_version == "latest" or wallet_version == "":
+        # latest intentionally keeps scanning: last manifest entry matching
+        # the coin name wins (pinned versions break on first match below).
+        walletVersion = walletVerList[-1]
+        walletGitTag = walletVersion
+        walletNameVerId = walletVersion
+        found = True
+    elif wallet_version in walletVerList:
+        walletVersion = wallet_version
+        walletGitTag = walletVersion
+        walletNameVerId = walletVersion
+        found = True
+        break
 
 if not found:
     sys.exit(f'Wallet version not found {wallet_version}')
@@ -122,8 +131,8 @@ for z in walletData:
 rendered_file = template.render(walletName=walletName, walletDaemon=walletDaemon, walletGitTag=walletGitTag,
                                 walletGitURL=walletGitURL, walletPort=walletPort, walletRPCPort=walletRPCPort,
                                 testnetPort=testnetPort, testnetRPC=testnetRPC, walletConfName=walletConfName,
-                                walletLinuxDir=walletLinuxDir, walletNameVerId=walletNameVerId, buildOS=buildOS,
-                                walletDockerName=walletTicker.lower())
+                                walletLinuxDir=walletLinuxDir, walletNameVerId=walletNameVerId,
+                                walletDockerName=walletTicker.lower(), **build_cfg)
 
 
 readme_rendered_file = readmetemplate.render(walletName=walletName, walletVersion=walletVersion, 
@@ -133,7 +142,7 @@ readme_rendered_file = readmetemplate.render(walletName=walletName, walletVersio
                                              testnetPort=testnetPort, testnetRPC=testnetRPC,
                                              walletConfName=walletConfName,
                                              walletLinuxDir=walletLinuxDir, walletNameVerId=walletNameVerId,
-                                             buildOS=buildOS, walletDockerName=walletTicker.lower())
+                                             walletDockerName=walletTicker.lower())
 
 dockerpath = walletName
 filename = '../images/' + dockerpath + '/Dockerfile'

@@ -18,7 +18,10 @@ RUN apt update \
      ca-certificates \
      wget curl git vim \
      build-essential libtool autotools-dev automake \
-     pkg-config bsdmainutils bison python3 libgmp-dev cmake \
+     pkg-config bsdmainutils bison python3 libgmp-dev cmake ninja-build \
+{% if apt_extra %}
+     {{ apt_extra }} \
+{% endif %}
   && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV DISTDIR=/opt/blockchain/dist
@@ -32,23 +35,36 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && git clone --depth 1 --branch {{ walletGitTag }} {{ walletGitURL }} {{ walletLinuxDir }} \
   && cd /opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/ \
   && cd depends \
-  {% if walletName == 'dash' %}
-# github actions ips are firewalled from default GMP package path, using ftp server alternative.
-&& sed -i "s/\$(package)_download_path=https:\/\/gmplib.org\/download\/gmp/\$(package)_download_path=https:\/\/ftp.gnu.org\/gnu\/gmp/" packages/gmp.mk \
-  {% endif %}
+{% for cmd in depends_prep %}
+  && {{ cmd }} \
+{% endfor %}
 && make -j$ecores NO_QT=1 \
-  && cd .. \
-  && chmod +x ./autogen.sh \
-  && ./autogen.sh \
-{% set platformPath = 'x86_64-unknown-linux-gnu' if walletName == 'unobtanium' else 'x86_64-pc-linux-gnu' %}
-  && ./configure CC="gcc-11" CXX="g++-11" CXXFLAGS="-Wno-error=return-type" --with-gui=no --enable-hardening --prefix=`pwd`/depends/{{ platformPath }} \
-  && make -j$ecores \
-  {% if walletName == 'pivx' %}
-# pivx need this script run once.
-&& ./params/install-params.sh \
-  {% endif %}
+{% if build_system == 'cmake' %}
+&& cd .. \
+&& mkdir -p build && cd build \
+&& cmake -GNinja .. -DCMAKE_TOOLCHAIN_FILE=../cmake/platforms/Linux64.cmake -DCMAKE_TOOLCHAIN_PREFIX=x86_64-pc-linux-gnu -DCMAKE_C_COMPILER={{ cc }} -DCMAKE_CXX_COMPILER={{ cxx }} -DCMAKE_CXX_FLAGS="-Wno-error=return-type" -DBUILD_BITCOIN_QT=OFF -DENABLE_MAN=OFF \
+&& ninja -j$ecores \
+{% for cmd in post_build %}
+&& {{ cmd }} \
+{% endfor %}
+&& DESTDIR=$DISTDIR ninja install \
+{% else %}
+&& cd .. \
+&& chmod +x ./autogen.sh \
+&& ./autogen.sh \
+{% set platformPath = platform_path if platform_path else 'x86_64-pc-linux-gnu' %}
+&& ./configure CC="{{ cc }}" CXX="{{ cxx }}" CXXFLAGS="-Wno-error=return-type" --with-gui=no --enable-hardening{% if configure_flags %} {{ configure_flags }}{% endif %} --prefix=`pwd`/depends/{{ platformPath }} \
+&& make -j$ecores \
+{% for cmd in post_build %}
+&& {{ cmd }} \
+{% endfor %}
 && make install DESTDIR=$DISTDIR \
+{% endif %}
+  {% if build_system == 'cmake' %}
+  && cp $DISTDIR/usr/local/bin/* /usr/bin/ \
+  {% else %}
   && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/depends/{{ platformPath }}/bin/* /usr/bin/ \
+  {% endif %}
   && rm -rf /opt/{{ walletLinuxDir }}/
 
 # Write default {{ walletConfName }} (can be overridden on commandline)
@@ -58,7 +74,7 @@ dbcache=256                             \n\
 maxmempool=512                          \n\
                                         \n\
 rpcuser=test                            \n\
-rpcpassword=AZErty.1                    \n\   
+rpcpassword=AZErty.1                    \n\
                                         \n\
 port={{ walletPort }}                              \n\
 rpcport={{ walletRPCPort }}                           \n\
@@ -80,10 +96,9 @@ VOLUME ["/opt/blockchain/config", "/opt/blockchain/data"]
 # Port, RPC, Test Port, Test RPC
 EXPOSE {{ walletPort }} {{ walletRPCPort }}  {{ testnetPort }}  {{ testnetRPC }}
 
-{% if walletName == 'unobtanium' %}
-# uno daemon need '-reindex' launch option.
-CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0", "-reindex"]
+{% if launch_flags %}
+# {{ walletName }} daemon needs extra launch option(s).
+CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"{% for flag in launch_flags %}, "{{ flag }}"{% endfor %}]
 {% else %}
 CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"]
 {% endif %}
-
