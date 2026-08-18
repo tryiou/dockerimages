@@ -45,6 +45,24 @@ COIN_OVERRIDES = {
 }
 
 
+# Keys are manifest dir_name_linux values. Pin the git ref (commit/branch/tag)
+# to clone when the upstream tag for a version is unreliable (e.g. BitCore
+# tagged 0.90.9.10 at a commit that still self-reports 0.90.9.9; the real
+# 0.90.9.10 build lives at 129111b on master). Overrides walletGitTag.
+COIN_GIT_REFS = {
+    'bitcore': '129111bca490c237fa080e9cd95a3b93e0f132d8',
+}
+
+
+# Keys are manifest dir_name_linux values. Bootstrap addnode peers baked into
+# the image's default conf. Used when the coin has no working DNS seed
+# (e.g. BitCore: seed.bitcore.biz returns nothing). Peers probed live on the
+# P2P port (8555 for bitcore) before pinning.
+COIN_ADDNODES = {
+    'bitcore': ['147.189.175.115', '192.99.37.121', '194.62.1.213', '194.62.29.27', '31.25.241.224'],
+}
+
+
 def get_build_config(wallet_linux_dir):
     system = COIN_BUILD_SYSTEMS.get(wallet_linux_dir, DEFAULT_BUILD_SYSTEM)
     if system not in BUILD_SYSTEMS:
@@ -59,4 +77,6 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('platform_path', '')
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('configure_flags', '')
+    cfg['git_ref'] = COIN_GIT_REFS.get(wallet_linux_dir, '')
+    cfg['addnodes'] = COIN_ADDNODES.get(wallet_linux_dir, [])
     return cfg

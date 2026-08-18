@@ -1,0 +1,26 @@
+{
+  "btc": {
+    "required": [
+      "getblockchaininfo",
+      "getnetworkinfo",
+      "getnewaddress",
+      "listunspent",
+      "gettxout",
+      "sendrawtransaction",
+      "signmessage",
+      "verifymessage",
+      "validateaddress",
+      "getrawmempool",
+      "getrawtransaction",
+      "getblock",
+      "getblockhash",
+      "getblockcount",
+      "createrawtransaction",
+      "decoderawtransaction"
+    ],
+    "either_or": [
+      ["signrawtransaction", "signrawtransactionwithwallet"]
+    ],
+    "optional": ["getinfo"]
+  }
+}

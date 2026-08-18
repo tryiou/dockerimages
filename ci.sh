@@ -12,6 +12,7 @@ function build() {
     if docker build --build-arg WALLET=$1 \
                     --build-arg TAG=$2 \
                     --build-arg BRANCH=$3 \
+                    --build-arg cores=$(nproc) \
                     -f ./images/"$1"/Dockerfile -t "$repo"/"$1":"$2" ./images/"$1"; then
       docker image ls "$repo"/"$1":"$2"
     else
@@ -70,6 +71,22 @@ function test() {
       docker stop "$1"-"$2"
       docker rm "$1"-"$2"
       exit 1
+    fi
+
+    # Verify the daemon supports every RPC method the Blocknet coin connector
+    # (XBridge + XRouter) requires. The container may have no wallet loaded
+    # (error -18) or reject the call for other reasons; any result other than
+    # -32601 "Method not found" proves the method exists.
+    if [[ "$1" != "servicenode" ]] ; then
+      cd autobuild && stem=$(python3 generate_build_files.py --blockchain=$1 --version=$2 --path=$3 --stem_only=true) && cd ../
+      if python3 autobuild/probe_rpc_methods.py --container "$1"-"$2" --stem "$stem"; then
+        echo "RPC probe passed."
+      else
+        echo "RPC probe failed."
+        docker stop "$1"-"$2"
+        docker rm "$1"-"$2"
+        exit 1
+      fi
     fi
 }
 
