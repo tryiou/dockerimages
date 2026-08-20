@@ -42,6 +42,9 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && git clone --depth 1 --branch {{ walletGitTag }} {{ walletGitURL }} {{ walletLinuxDir }} \
   && cd /opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/ \
 {% endif %}
+{% if source_subdir %}
+  && cd {{ source_subdir }} \
+{% endif %}
   && cd depends \
 {% for cmd in depends_prep %}
   && {{ cmd }} \
@@ -79,7 +82,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   {% if build_system == 'cmake' or build_system == 'cmake_core' %}
   && cp $DISTDIR/usr/local/bin/* /usr/bin/ \
   {% else %}
-  && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/depends/{{ platformPath }}/bin/* /usr/bin/ \
+  && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}{% if source_subdir %}/{{ source_subdir }}{% endif %}/depends/{{ platformPath }}/bin/* /usr/bin/ \
   {% endif %}
   && rm -rf /opt/{{ walletLinuxDir }}/
 

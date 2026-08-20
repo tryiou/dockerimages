@@ -66,6 +66,15 @@ COIN_OVERRIDES = {
         # runs NO_QT=1. Provide zlib from the system.
         'apt_extra': 'zlib1g-dev',
     },
+    'divi': {
+        # v3.0.0 source lives under a `divi/` subdir of the repo root
+        # (depends/, src/, autogen.sh are all inside it). The Dockerfile clones
+        # into /opt/<dir>/<dir>/ then cds into this subdir before building.
+        'source_subdir': 'divi',
+        # Daemon defaults to file-only logging (fPrintToConsole=false), so
+        # docker logs is silent; opt into console logging.
+        'launch_flags': ['-printtoconsole'],
+    },
 }
 
 
@@ -100,6 +109,7 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('depends_prep', [])
     cfg.setdefault('post_build', [])
     cfg.setdefault('platform_path', '')
+    cfg.setdefault('source_subdir', '')
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('configure_flags', '')
     cfg['git_ref'] = COIN_GIT_REFS.get(wallet_linux_dir, '')
