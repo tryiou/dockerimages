@@ -116,7 +116,11 @@ VOLUME ["/opt/blockchain/config", "/opt/blockchain/data"]
 # Port, RPC, Test Port, Test RPC
 EXPOSE {{ walletPort }} {{ walletRPCPort }}  {{ testnetPort }}  {{ testnetRPC }}
 
-{% if launch_flags %}
+{% if tail_debuglog %}
+# {{ walletName }} daemon logs to debug.log only (fPrintToConsole=false), so
+# stream it to stdout via tail -F; daemon stays PID 1 for clean shutdown.
+CMD ["/bin/bash", "-c", "tail -F /opt/blockchain/data/debug.log & exec /usr/bin/{{ walletDaemon }} -daemon=0"]
+{% elif launch_flags %}
 # {{ walletName }} daemon needs extra launch option(s).
 CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"{% for flag in launch_flags %}, "{{ flag }}"{% endfor %}]
 {% else %}

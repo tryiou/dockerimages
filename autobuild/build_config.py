@@ -71,9 +71,9 @@ COIN_OVERRIDES = {
         # (depends/, src/, autogen.sh are all inside it). The Dockerfile clones
         # into /opt/<dir>/<dir>/ then cds into this subdir before building.
         'source_subdir': 'divi',
-        # Daemon defaults to file-only logging (fPrintToConsole=false), so
-        # docker logs is silent; opt into console logging.
-        'launch_flags': ['-printtoconsole'],
+        # Daemon defaults to file-only logging (fPrintToConsole=false); stream
+        # debug.log to stdout (docker logs) while keeping the file written.
+        'tail_debuglog': True,
     },
     'dogecash': {
         # boostorg.jfrog.io is dead (reactivate-server page); use archives.boost.io
@@ -83,6 +83,12 @@ COIN_OVERRIDES = {
         # Sapling params are required at startup (init.cpp aborts without them);
         # fetch them during the build like PIVX does.
         'post_build': ['./params/install-params.sh'],
+    },
+    'dogecoin': {
+        # Daemon defaults to file-only logging (fPrintToConsole=false,
+        # util.cpp:115); stream debug.log to stdout (docker logs) while keeping
+        # the file written.
+        'tail_debuglog': True,
     },
 }
 
@@ -121,6 +127,7 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('platform_path', '')
     cfg.setdefault('source_subdir', '')
     cfg.setdefault('launch_flags', [])
+    cfg.setdefault('tail_debuglog', False)
     cfg.setdefault('configure_flags', '')
     cfg['git_ref'] = COIN_GIT_REFS.get(wallet_linux_dir, '')
     cfg['addnodes'] = COIN_ADDNODES.get(wallet_linux_dir, [])
