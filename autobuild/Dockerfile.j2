@@ -45,6 +45,18 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
 {% if source_subdir %}
   && cd {{ source_subdir }} \
 {% endif %}
+{% if build_system == 'makefile_unix' %}
+  && cd src \
+{% for cmd in depends_prep %}
+  && {{ cmd }} \
+{% endfor %}
+  && make "USE_NATIVETOR=-" -f makefile.unix INNOVA_SPINNER=0 -j$ecores \
+{% for cmd in post_build %}
+  && {{ cmd }} \
+{% endfor %}
+  && cp {{ walletDaemon }} /usr/bin/ \
+  && ln -s {{ walletDaemon }} /usr/bin/{{ walletDaemon[:-1] }}-cli \
+{% else %}
   && cd depends \
 {% for cmd in depends_prep %}
   && {{ cmd }} \
@@ -84,6 +96,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   {% else %}
   && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}{% if source_subdir %}/{{ source_subdir }}{% endif %}/depends/{{ platformPath }}/bin/* /usr/bin/ \
   {% endif %}
+{% endif %}
   && rm -rf /opt/{{ walletLinuxDir }}/
 
 # Write default {{ walletConfName }} (can be overridden on commandline)

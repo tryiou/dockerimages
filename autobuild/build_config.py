@@ -24,6 +24,17 @@ BUILD_SYSTEMS = {
         'cxx':       'g++-11',
         'apt_extra': '',
     },
+    # Plain `make -f makefile.unix` in src/ (no depends/, autotools, or cmake),
+    # e.g. Innova v5.0.0.0. Compiles against system libs. OpenSSL 3.x
+    # (jammy) auto-disables the bundled native-tor build (makefile.unix:43-48),
+    # so we force USE_NATIVETOR=- and skip it entirely. Needs Berkeley DB,
+    # boost, openssl, libevent, miniupnpc, curl, zlib.
+    'makefile_unix': {
+        'buildOS':   'jammy',
+        'cc':        'gcc-11',
+        'cxx':       'g++-11',
+        'apt_extra': 'libssl-dev libdb++-dev libboost-all-dev libminiupnpc-dev libevent-dev libcurl4-openssl-dev zlib1g-dev',
+    },
 }
 
 # Keys are manifest dir_name_linux values.
