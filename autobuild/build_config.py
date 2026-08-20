@@ -29,6 +29,9 @@ BUILD_SYSTEMS = {
 # Keys are manifest dir_name_linux values.
 COIN_BUILD_SYSTEMS = {
     'bitcoincash': 'cmake',
+    # fujicoin v28+ (Bitcoin Core 28-30 base) is a CMake-only build: no
+    # autogen.sh/configure, uses the depends-generated toolchain.cmake.
+    'fujicoin': 'cmake_core',
 }
 
 # Keys are manifest dir_name_linux values.
