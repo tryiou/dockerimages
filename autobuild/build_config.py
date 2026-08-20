@@ -90,6 +90,15 @@ COIN_OVERRIDES = {
         # the file written.
         'tail_debuglog': True,
     },
+    'emercoin': {
+        # v0.8.5emc Makefile.am links emercoin-tx with LIBBITCOIN_COMMON
+        # (provider of the free GetMinFee() in policy/feerate.cpp) before
+        # LIBBITCOIN_CONSENSUS (consumer in primitives/transaction.cpp), so the
+        # static link never resolves it. Upstream bug, present on master too.
+        # The daemon/cli/wallet binaries link fine (WALLET/SERVER pull
+        # feerate.o first) — only emercoin-tx fails, so skip it.
+        'configure_flags': '--disable-util-tx',
+    },
 }
 
 
