@@ -113,6 +113,11 @@ COIN_OVERRIDES = {
         # feerate.o first) — only emercoin-tx fails, so skip it.
         'configure_flags': '--disable-util-tx',
     },
+    'ixcoin': {
+        # Daemon defaults to file-only logging (fPrintToConsole=false); stream
+        # debug.log to stdout (docker logs) while keeping the file written.
+        'tail_debuglog': True,
+    },
 }
 
 
