@@ -75,6 +75,15 @@ COIN_OVERRIDES = {
         # docker logs is silent; opt into console logging.
         'launch_flags': ['-printtoconsole'],
     },
+    'dogecash': {
+        # boostorg.jfrog.io is dead (reactivate-server page); use archives.boost.io
+        'depends_prep': [
+            'sed -i "s|\\$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/|\\$(package)_download_path=https://archives.boost.io/release/1.71.0/source/|" packages/boost.mk',
+        ],
+        # Sapling params are required at startup (init.cpp aborts without them);
+        # fetch them during the build like PIVX does.
+        'post_build': ['./params/install-params.sh'],
+    },
 }
 
 
@@ -94,6 +103,7 @@ COIN_GIT_REFS = {
 COIN_ADDNODES = {
     'bitcore': ['147.189.175.115', '192.99.37.121', '194.62.1.213', '194.62.29.27', '31.25.241.224'],
     'digiwage': ['119.198.113.149', '185.197.194.5', '167.237.24.110'],
+    'dogecash': ['183.88.212.13', '199.241.137.81', '213.199.51.234', '173.249.63.231', '207.180.212.131', '164.68.99.67', '167.86.88.137', '144.91.78.11'],
 }
 
 
