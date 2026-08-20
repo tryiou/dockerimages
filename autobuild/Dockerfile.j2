@@ -47,6 +47,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && {{ cmd }} \
 {% endfor %}
 && make -j$ecores NO_QT=1 \
+{% set platformPath = platform_path if platform_path else 'x86_64-pc-linux-gnu' %}
 {% if build_system == 'cmake' %}
 && cd .. \
 && mkdir -p build && cd build \
@@ -56,11 +57,18 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
 && {{ cmd }} \
 {% endfor %}
 && DESTDIR=$DISTDIR ninja install \
+{% elif build_system == 'cmake_core' %}
+&& cd .. \
+&& cmake -B build -DCMAKE_TOOLCHAIN_FILE=depends/{{ platformPath }}/toolchain.cmake -DCMAKE_CXX_FLAGS="-Wno-error=return-type" -DBUILD_TESTS=OFF -DBUILD_BENCH=OFF -DINSTALL_MAN=OFF \
+&& cmake --build build -j $ecores \
+{% for cmd in post_build %}
+&& {{ cmd }} \
+{% endfor %}
+&& DESTDIR=$DISTDIR cmake --install build \
 {% else %}
 && cd .. \
 && chmod +x ./autogen.sh \
 && ./autogen.sh \
-{% set platformPath = platform_path if platform_path else 'x86_64-pc-linux-gnu' %}
 && ./configure CC="{{ cc }}" CXX="{{ cxx }}" CXXFLAGS="-Wno-error=return-type" --with-gui=no --enable-hardening{% if configure_flags %} {{ configure_flags }}{% endif %} --prefix=`pwd`/depends/{{ platformPath }} \
 && make -j$ecores \
 {% for cmd in post_build %}
@@ -68,7 +76,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
 {% endfor %}
 && make install DESTDIR=$DISTDIR \
 {% endif %}
-  {% if build_system == 'cmake' %}
+  {% if build_system == 'cmake' or build_system == 'cmake_core' %}
   && cp $DISTDIR/usr/local/bin/* /usr/bin/ \
   {% else %}
   && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/depends/{{ platformPath }}/bin/* /usr/bin/ \

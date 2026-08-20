@@ -13,6 +13,17 @@ BUILD_SYSTEMS = {
         'cxx':       'g++-11',
         'apt_extra': 'libssl-dev libevent-dev libboost-chrono-dev libboost-filesystem-dev libboost-test-dev libboost-thread-dev zlib1g-dev',
     },
+    # Modern Bitcoin Core v25+ (e.g. Xaya): CMake-only build, no autogen.sh/configure.
+    # Builds with the depends-generated toolchain file
+    # (depends/<host>/toolchain.cmake); deps are compiled statically by
+    # depends, so no extra apt packages are needed. Requires C++20 and
+    # cmake >= 3.22 (jammy ships cmake 3.22.1 + gcc-11).
+    'cmake_core': {
+        'buildOS':   'jammy',
+        'cc':        'gcc-11',
+        'cxx':       'g++-11',
+        'apt_extra': '',
+    },
 }
 
 # Keys are manifest dir_name_linux values.
@@ -33,6 +44,13 @@ COIN_OVERRIDES = {
         'cc':      'gcc-11',
         'cxx':     'g++-11',
     },
+    'dashcore': {
+        # v23.x depends set CXX_STANDARD=c++20 (needs gcc-10+; focal only ships
+        # gcc-9). Same pattern as syscoin.
+        'buildOS': 'jammy',
+        'cc':      'gcc-11',
+        'cxx':     'g++-11',
+    },
     'unobtanium': {
         'platform_path':   'x86_64-unknown-linux-gnu',
         'launch_flags':    ['-reindex'],
@@ -41,6 +59,12 @@ COIN_OVERRIDES = {
             # boostorg.jfrog.io redirects to a dead "reactivate server" page; use archives.boost.io
             'sed -i "s|\\$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/|\\$(package)_download_path=https://archives.boost.io/release/1.70.0/source/|" packages/boost.mk',
         ],
+    },
+    'ColossusXT': {
+        # colxd links the source-tree minizip (AC_CONFIG_SUBDIRS), which needs
+        # zlib.h; but depends builds zlib only via qt_packages, and this build
+        # runs NO_QT=1. Provide zlib from the system.
+        'apt_extra': 'zlib1g-dev',
     },
 }
 
@@ -60,6 +84,7 @@ COIN_GIT_REFS = {
 # P2P port (8555 for bitcore) before pinning.
 COIN_ADDNODES = {
     'bitcore': ['147.189.175.115', '192.99.37.121', '194.62.1.213', '194.62.29.27', '31.25.241.224'],
+    'digiwage': ['119.198.113.149', '185.197.194.5', '167.237.24.110'],
 }
 
 
