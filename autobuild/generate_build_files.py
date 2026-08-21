@@ -84,6 +84,7 @@ for blockchain in manifest_config:
     walletGitURL = blockchain['repo_url']
     walletConfName = blockchain['conf_name']
     walletLinuxDir = blockchain['dir_name_linux']
+    daemon_stem = blockchain.get('daemon_stem', walletDaemon[:-1])
     build_cfg = get_build_config(walletLinuxDir)
     walletTicker = blockchain['ticker']
     walletVerList = blockchain['versions']
@@ -132,7 +133,7 @@ rendered_file = template.render(walletName=walletName, walletDaemon=walletDaemon
                                 walletGitURL=walletGitURL, walletPort=walletPort, walletRPCPort=walletRPCPort,
                                 testnetPort=testnetPort, testnetRPC=testnetRPC, walletConfName=walletConfName,
                                 walletLinuxDir=walletLinuxDir, walletNameVerId=walletNameVerId,
-                                walletDockerName=walletTicker.lower(), **build_cfg)
+                                walletDockerName=walletName, daemon_stem=daemon_stem, **build_cfg)
 
 
 readme_rendered_file = readmetemplate.render(walletName=walletName, walletVersion=walletVersion, 
@@ -142,7 +143,7 @@ readme_rendered_file = readmetemplate.render(walletName=walletName, walletVersio
                                              testnetPort=testnetPort, testnetRPC=testnetRPC,
                                              walletConfName=walletConfName,
                                              walletLinuxDir=walletLinuxDir, walletNameVerId=walletNameVerId,
-                                             walletDockerName=walletTicker.lower())
+                                walletDockerName=walletName, daemon_stem=daemon_stem, **build_cfg)
 
 dockerpath = walletName
 filename = '../images/' + dockerpath + '/Dockerfile'

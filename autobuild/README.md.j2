@@ -18,7 +18,11 @@ Simple
 
 Run a simple {{ walletDockerName }} node on port {{ walletPort }}:
 ```
+{% if build_system == 'golang' %}
+docker run -d --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} -p {{ walletRPCPort }}:{{ walletRPCPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+{% else %}
 docker run -d --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+{% endif %}
 ```
 
 
@@ -39,10 +43,17 @@ See https://docs.docker.com/engine/admin/start-containers-automatically/
 `--restart=no|on-failure:retrycount|unless-stopped|always`
 
 ```
+{% if build_system == 'golang' %}
+docker run -d --restart=no --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} -p {{ walletRPCPort }}:{{ walletRPCPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+docker run -d --restart=on-failure:10 --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} -p {{ walletRPCPort }}:{{ walletRPCPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+docker run -d --restart=unless-stopped --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} -p {{ walletRPCPort }}:{{ walletRPCPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+docker run -d --restart=always --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} -p {{ walletRPCPort }}:{{ walletRPCPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }}
+{% else %}
 docker run -d --restart=no --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }} {{ walletDaemon }} -daemon=0 -rpcuser={{ walletTicker }} -rpcpassword={{ walletTicker }}123
 docker run -d --restart=on-failure:10 --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }} {{ walletDaemon }} -daemon=0 -rpcuser={{ walletTicker }} -rpcpassword={{ walletTicker }}123
 docker run -d --restart=unless-stopped --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }} {{ walletDaemon }} -daemon=0 -rpcuser={{ walletTicker }} -rpcpassword={{ walletTicker }}123
 docker run -d --restart=always --name={{ walletDockerName }} -p {{ walletPort }}:{{ walletPort }} blocknetdx/{{ walletDockerName }}:{{ walletVersion }} {{ walletDaemon }} -daemon=0 -rpcuser={{ walletTicker }} -rpcpassword={{ walletTicker }}123
+{% endif %}
 ```
 
 
@@ -59,6 +70,28 @@ Default {{ walletConfName }}
 =====================
 
 The default configuration is below. A custom configuration file can be passed to the {{ walletDockerName }}  node container through the `/opt/blockchain/config` volume. Some of these parameters can also be adjusted on the command line.
+{% if build_system == 'golang' %}
+The Go daemon ({{ walletDaemon }}) and its wallet facade ({{ daemon_stem }}wallet) read Go-format config files (`{{ walletConfName }}` and `{{ daemon_stem }}wallet.conf`). The node RPC is bound to localhost; the legacy wallet RPC on port {{ walletRPCPort }} is the facade for RPC commands:
+```
+# {{ walletConfName }}
+datadir=/opt/blockchain/data
+rpcuser=test
+rpcpass={{ default_rpc_pass }}
+rpclisten=127.0.0.1:{{ daemon_rpc_port }}
+notls=1
+listen=0.0.0.0:{{ walletPort }}
+txindex=1
+
+# {{ daemon_stem }}wallet.conf
+appdata=/opt/blockchain/data
+rpcconnect=127.0.0.1:{{ daemon_rpc_port }}
+noclienttls=1
+noservertls=1
+rpclisten=0.0.0.0:{{ walletRPCPort }}
+rpcuser=test
+rpcpass={{ default_rpc_pass }}
+```
+{% else %}
 ```
 datadir=/opt/blockchain/data
 
@@ -79,6 +112,7 @@ rpcallowip=127.0.0.1
 rpcwaittimeout=30
 rpcclienttimeout=30
 ```
+{% endif %}
 
 
 License

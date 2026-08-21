@@ -1,6 +1,149 @@
 # Build via docker:
 # docker build --build-arg cores=8 -t blocknetdx/{{ walletDockerName }}:latest .
 
+{% if build_system == 'golang' %}
+# =============================================================================
+# Go daemon build (btcd-family: node daemon + its wallet facade).
+# Multi-stage: golang builder compiles the Go binaries; the runtime stage is a
+# plain ubuntu image (no gcc/g++/depends toolchain).
+# =============================================================================
+{% set daemon_rpc_port = daemon_rpc_port | default((walletRPCPort | int + 10000) | string) %}
+{% set daemon_stem = daemon_stem | default(walletDaemon[:-1]) %}
+FROM golang:1.19 AS builder
+
+ARG cores=6
+ENV ecores=$cores
+
+LABEL wallet={{ walletName }}
+LABEL version={{ walletGitTag }}
+
+# Build the node daemon + its CLI.
+RUN git clone --depth 1 --branch {{ walletGitTag }} {{ walletGitURL }} {{ walletLinuxDir }} \
+  && cd {{ walletLinuxDir }} \
+  && go install -v . ./cmd/...
+
+{% if wallet_repo %}
+# Build the companion wallet facade (pinned in build_config.py COIN_OVERRIDES).
+RUN git clone --depth 1 --branch {{ wallet_tag }} {{ wallet_repo }} {{ daemon_stem }}wallet \
+  && cd {{ daemon_stem }}wallet \
+  && go install -v .
+{% endif %}
+
+FROM ubuntu:{{ buildOS }}
+
+ARG cores=6
+ENV ecores=$cores
+
+LABEL wallet={{ walletName }}
+LABEL version={{ walletGitTag }}
+
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN apt update \
+  && apt install -y --no-install-recommends \
+      ca-certificates curl \
+  && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy the Go binaries built in the builder stage
+COPY --from=builder /go/bin/{{ walletDaemon }} /usr/bin/{{ walletDaemon }}
+COPY --from=builder /go/bin/{{ daemon_stem }}ctl /usr/bin/{{ daemon_stem }}ctl
+{% if wallet_repo %}
+COPY --from=builder /go/bin/{{ daemon_stem }}wallet /usr/bin/{{ daemon_stem }}wallet
+{% endif %}
+
+RUN mkdir -p /opt/blockchain/config \
+  && mkdir -p /opt/blockchain/config_init \
+  && mkdir -p /opt/blockchain/data \
+  && ln -s /opt/blockchain/config /root/.{{ walletDaemon }} \
+{% if wallet_repo %}
+  && ln -s /opt/blockchain/config /root/.{{ daemon_stem }}wallet
+{% endif %}
+
+# Node daemon config -- RPC bound to localhost only (notls requires it);
+# the legacy facade (if present) is served by the wallet binary on the
+# exposed port.
+RUN printf "datadir=/opt/blockchain/data\n\
+rpcuser=test\n\
+rpcpass={{ default_rpc_pass }}\n\
+rpclisten=127.0.0.1:{{ daemon_rpc_port }}\n\
+notls=1\n\
+listen=0.0.0.0:{{ walletPort }}\n\
+txindex=1\n\
+maxpeers=16\n" > /opt/blockchain/config_init/{{ walletConfName }}
+
+{% if wallet_repo %}
+# Wallet facade config -- legacy RPC on the exposed port.
+RUN printf "appdata=/opt/blockchain/data\n\
+rpcconnect=127.0.0.1:{{ daemon_rpc_port }}\n\
+noclienttls=1\n\
+noservertls=1\n\
+rpclisten=0.0.0.0:{{ walletRPCPort }}\n\
+rpcuser=test\n\
+rpcpass={{ default_rpc_pass }}\n\
+passphrase={{ default_rpc_pass }}\n" > /opt/blockchain/config_init/{{ daemon_stem }}wallet.conf
+
+# CLI shim -> <coin>ctl against the wallet facade's legacy RPC.
+RUN printf '#!/bin/sh\nexec /usr/bin/{{ daemon_stem }}ctl --wallet --notls --rpcserver=127.0.0.1:{{ walletRPCPort }} -u ${RPC_USER:-test} -P ${RPC_PASSWORD:-{{ default_rpc_pass }}} "$@"\n' > /usr/bin/{{ daemon_stem }}-cli \
+  && chmod +x /usr/bin/{{ daemon_stem }}-cli
+{% endif %}
+
+# Entrypoint: start the node, wait for its RPC, auto-create the wallet on
+# first boot (if a facade is present), then run the facade (or node) in the
+# foreground as PID 1. Credentials are applied from RPC_USER/RPC_PASSWORD env
+# at startup so the EXR stack can inject its own.
+RUN cat > /opt/blockchain/start.sh <<'EOF'
+#!/bin/bash
+set -e
+# The EXR stack bind-mounts a host dir over /opt/blockchain/config, which would
+# shadow the configs baked into the image. Seed them from the non-shadowed
+# config_init dir on first boot (guarded so restarts never clobber edits).
+mkdir -p /opt/blockchain/config
+[ -f /opt/blockchain/config/{{ walletConfName }} ] || cp /opt/blockchain/config_init/{{ walletConfName }} /opt/blockchain/config/{{ walletConfName }}
+{% if wallet_repo %}
+[ -f /opt/blockchain/config/{{ daemon_stem }}wallet.conf ] || cp /opt/blockchain/config_init/{{ daemon_stem }}wallet.conf /opt/blockchain/config/{{ daemon_stem }}wallet.conf
+{% endif %}
+sed -i "s/^rpcuser=.*/rpcuser=${RPC_USER:-test}/; s/^rpcpass=.*/rpcpass=${RPC_PASSWORD:-{{ default_rpc_pass }}}/" \
+  /opt/blockchain/config/{{ walletConfName }}{% if wallet_repo %} /opt/blockchain/config/{{ daemon_stem }}wallet.conf{% endif %}
+
+# Forward SIGTERM/SIGINT to the node + wallet facade so `docker stop` shuts them
+# down gracefully (avoids SIGKILL / unclean LevelDB/Pebble DB on the chain).
+cleanup() {
+  kill -TERM "$WALLET_PID" "$LBCD_PID" 2>/dev/null
+  wait 2>/dev/null
+  exit 0
+}
+trap cleanup TERM INT
+
+/usr/bin/{{ walletDaemon }} -C /opt/blockchain/config/{{ walletConfName }} &
+LBCD_PID=$!
+for i in $(seq 1 60); do
+  /usr/bin/{{ daemon_stem }}ctl --notls --rpcserver=127.0.0.1:{{ daemon_rpc_port }} -u ${RPC_USER:-test} -P ${RPC_PASSWORD:-{{ default_rpc_pass }}} getblockchaininfo >/dev/null 2>&1 && break
+  sleep 2
+done
+{% if wallet_repo %}
+if [ ! -f /opt/blockchain/data/mainnet/wallet.db ]; then
+  # 'no' declines an existing seed; 'OK' acknowledges the generated seed.
+  # These answers are pinned to lbcwallet v0.13.111's --create prompt sequence.
+  printf 'no\nOK\n' | /usr/bin/{{ daemon_stem }}wallet -C /opt/blockchain/config/{{ daemon_stem }}wallet.conf --create || echo "wallet create failed, continuing"
+fi
+/usr/bin/{{ daemon_stem }}wallet -C /opt/blockchain/config/{{ daemon_stem }}wallet.conf &
+WALLET_PID=$!
+wait $WALLET_PID
+{% else %}
+wait $LBCD_PID
+{% endif %}
+EOF
+RUN chmod +x /opt/blockchain/start.sh
+
+WORKDIR /opt/blockchain/
+VOLUME ["/opt/blockchain/config", "/opt/blockchain/data"]
+
+# P2P, Legacy RPC (wallet facade)
+EXPOSE {{ walletPort }} {{ walletRPCPort }}
+
+CMD ["/opt/blockchain/start.sh"]
+{% else %}
 FROM ubuntu:{{ buildOS }}
 
 ARG cores=6
@@ -16,7 +159,7 @@ RUN apt update \
   && apt install -y --no-install-recommends \
      software-properties-common \
      ca-certificates \
-     wget curl git vim \
+      wget curl git \
      build-essential libtool autotools-dev automake \
      pkg-config bsdmainutils bison python3 libgmp-dev cmake ninja-build \
 {% if apt_extra %}
@@ -106,7 +249,7 @@ dbcache=256                             \n\
 maxmempool=512                          \n\
                                         \n\
 rpcuser=test                            \n\
-rpcpassword=AZErty.1                    \n\
+rpcpassword={{ default_rpc_pass }}                    \n\
                                         \n\
 port={{ walletPort }}                              \n\
 rpcport={{ walletRPCPort }}                           \n\
@@ -138,4 +281,5 @@ CMD ["/bin/bash", "-c", "tail -F /opt/blockchain/data/debug.log & exec /usr/bin/
 CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"{% for flag in launch_flags %}, "{{ flag }}"{% endfor %}]
 {% else %}
 CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"]
+{% endif %}
 {% endif %}

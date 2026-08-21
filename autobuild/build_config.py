@@ -1,5 +1,10 @@
 DEFAULT_BUILD_SYSTEM = 'autotools'
 
+# Default RPC password baked into generated wallet images. Single source of
+# truth: surfaced to every template via get_build_config() as `default_rpc_pass`
+# so it is declared exactly once in the codebase.
+DEFAULT_RPC_PASS = 'AZErty.1'
+
 BUILD_SYSTEMS = {
     'autotools': {
         'buildOS':   'focal',
@@ -35,6 +40,15 @@ BUILD_SYSTEMS = {
         'cxx':       'g++-11',
         'apt_extra': 'libssl-dev libdb++-dev libboost-all-dev libminiupnpc-dev libevent-dev libcurl4-openssl-dev zlib1g-dev',
     },
+    # Go daemons (e.g. LBC via LBRYFoundation/lbcd). Built in a multi-stage
+    # Dockerfile: golang:1.19 builder compiles the Go binaries, the runtime
+    # stage is a plain ubuntu:jammy. No gcc/g++ toolchain needed at runtime.
+    'golang': {
+        'buildOS':   'jammy',
+        'cc':        '',
+        'cxx':       '',
+        'apt_extra': '',
+    },
 }
 
 # Keys are manifest dir_name_linux values.
@@ -43,6 +57,9 @@ COIN_BUILD_SYSTEMS = {
     # fujicoin v28+ (Bitcoin Core 28-30 base) is a CMake-only build: no
     # autogen.sh/configure, uses the depends-generated toolchain.cmake.
     'fujicoin': 'cmake_core',
+    # LBC: lbcd (Go) replaced lbrycrd (deprecated). wallet_repo/wallet_tag in
+    # COIN_OVERRIDES['lbcd'] pin the lbcwallet companion binary.
+    'lbcd': 'golang',
 }
 
 # Keys are manifest dir_name_linux values.
@@ -118,6 +135,17 @@ COIN_OVERRIDES = {
         # debug.log to stdout (docker logs) while keeping the file written.
         'tail_debuglog': True,
     },
+    'lbcd': {
+        # lbcd is the LBRY Foundation Go daemon; lbcwallet provides the
+        # Bitcoin-Core-compatible legacy RPC facade (wallet + node passthrough).
+        # The manifest points at lbcd only; the lbcwallet companion is pinned
+        # here so the golang Dockerfile can build both.
+        'wallet_repo': 'https://github.com/LBRYFoundation/lbcwallet',
+        'wallet_tag':  'v0.13.111',
+        # Node RPC is bound to localhost and only reached by the wallet facade;
+        # it uses a port offset from the exposed wallet RPC to avoid collision.
+        'daemon_rpc_port': '19245',
+    },
 }
 
 
@@ -157,6 +185,9 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('tail_debuglog', False)
     cfg.setdefault('configure_flags', '')
+    cfg.setdefault('wallet_repo', '')
+    cfg.setdefault('wallet_tag', '')
     cfg['git_ref'] = COIN_GIT_REFS.get(wallet_linux_dir, '')
     cfg['addnodes'] = COIN_ADDNODES.get(wallet_linux_dir, [])
+    cfg['default_rpc_pass'] = DEFAULT_RPC_PASS
     return cfg
