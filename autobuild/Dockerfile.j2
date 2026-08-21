@@ -228,7 +228,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
 && chmod +x ./autogen.sh \
 && ./autogen.sh \
 && ./configure CC="{{ cc }}" CXX="{{ cxx }}" CXXFLAGS="-Wno-error=return-type" --with-gui=no --enable-hardening{% if configure_flags %} {{ configure_flags }}{% endif %} --prefix=`pwd`/depends/{{ platformPath }} \
-&& make -j$ecores \
+&& make -j$ecores {{ make_args }}\
 {% for cmd in post_build %}
 && {{ cmd }} \
 {% endfor %}

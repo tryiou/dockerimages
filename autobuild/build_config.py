@@ -64,6 +64,15 @@ COIN_BUILD_SYSTEMS = {
 
 # Keys are manifest dir_name_linux values.
 COIN_OVERRIDES = {
+    'lynx': {
+        # Bitcoin Core v26 fork (v28.0.0): needs C++20 (gcc-11/jammy), and the
+        # daemon is compiled per-chain via -DCURRENT_CHAIN="$(NAME)" (Makefile.am),
+        # so make must be told NAME=lynx or the image builds the wrong chain.
+        'buildOS': 'jammy',
+        'cc': 'gcc-11',
+        'cxx': 'g++-11',
+        'make_args': 'NAME=lynx',
+    },
     'pivx': {
         'post_build': ['./params/install-params.sh'],
     },
@@ -184,6 +193,7 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('source_subdir', '')
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('tail_debuglog', False)
+    cfg.setdefault('make_args', '')
     cfg.setdefault('configure_flags', '')
     cfg.setdefault('wallet_repo', '')
     cfg.setdefault('wallet_tag', '')
