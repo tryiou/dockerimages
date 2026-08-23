@@ -176,13 +176,14 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && ln -s /opt/blockchain/config /root/.{{ walletLinuxDir }} \
   && cd /opt/{{ walletLinuxDir }} \
 {% if git_ref %}
-  && git clone --depth 1 {{ walletGitURL }} {{ walletLinuxDir }} \
+  && git clone{{ git_clone_flags }} --depth 1 {{ walletGitURL }} {{ walletLinuxDir }} \
   && cd {{ walletLinuxDir }} \
   && git fetch --depth 1 origin {{ git_ref }} \
   && git checkout FETCH_HEAD \
+  && git submodule update --init --recursive --depth 1 \
   && cd /opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/ \
 {% else %}
-  && git clone --depth 1 --branch {{ walletGitTag }} {{ walletGitURL }} {{ walletLinuxDir }} \
+  && git clone{{ git_clone_flags }} --depth 1 --branch {{ walletGitTag }} {{ walletGitURL }} {{ walletLinuxDir }} \
   && cd /opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}/ \
 {% endif %}
 {% if source_subdir %}

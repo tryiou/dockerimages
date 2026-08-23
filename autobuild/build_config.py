@@ -73,6 +73,14 @@ COIN_OVERRIDES = {
         'cxx': 'g++-11',
         'make_args': 'NAME=lynx',
     },
+    'metrixcoin': {
+        # Qtum fork: the EVM (aleth/cpp-ethereum) lives in the src/cpp-ethereum
+        # git submodule; without it the build dies on missing
+        # libethashseal/libdevcore headers.
+        'git_clone_flags': ' --recurse-submodules',
+        # Upstream CI flags: skip test/bench suites (~20% faster build).
+        'configure_flags': '--disable-tests --disable-bench',
+    },
     'pivx': {
         'post_build': ['./params/install-params.sh'],
     },
@@ -175,6 +183,7 @@ COIN_ADDNODES = {
     'bitcore': ['147.189.175.115', '192.99.37.121', '194.62.1.213', '194.62.29.27', '31.25.241.224'],
     'digiwage': ['119.198.113.149', '185.197.194.5', '167.237.24.110'],
     'dogecash': ['183.88.212.13', '199.241.137.81', '213.199.51.234', '173.249.63.231', '207.180.212.131', '164.68.99.67', '167.86.88.137', '144.91.78.11'],
+    'metrixcoin': ['46.101.142.112', '138.68.3.71', '123.253.61.161', '45.77.222.249', '137.184.168.50', '168.119.88.177', '206.189.214.150', '135.181.155.76', '23.88.58.244'],
 }
 
 
@@ -194,6 +203,7 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('tail_debuglog', False)
     cfg.setdefault('make_args', '')
+    cfg.setdefault('git_clone_flags', '')
     cfg.setdefault('configure_flags', '')
     cfg.setdefault('wallet_repo', '')
     cfg.setdefault('wallet_tag', '')
