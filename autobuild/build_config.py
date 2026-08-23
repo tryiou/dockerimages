@@ -99,6 +99,15 @@ COIN_OVERRIDES = {
         'cc':      'gcc-11',
         'cxx':     'g++-11',
     },
+    'particl': {
+        # v27 (Bitcoin Core 27 base) mandates C++20 (AX_CXX_COMPILE_STDCXX
+        # [20] mandatory; GCC >= 10.1). Autotools flow otherwise unchanged.
+        # depends builds eudev, whose configure needs gperf on the host.
+        'buildOS': 'jammy',
+        'cc':      'gcc-11',
+        'cxx':     'g++-11',
+        'apt_extra': 'gperf',
+    },
     'unobtanium': {
         'platform_path':   'x86_64-unknown-linux-gnu',
         'launch_flags':    ['-reindex'],
