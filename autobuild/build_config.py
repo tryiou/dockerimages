@@ -87,6 +87,13 @@ COIN_OVERRIDES = {
     'pivx': {
         'post_build': ['./params/install-params.sh'],
     },
+    'stakecubecoin': {
+        # v3.5.1.0: upstream test/util/setup_common.cpp calls
+        # llmq::InitLLMQSystem(*evoDb, true) with a stale signature (bool vs
+        # CChainState&) - test sources do not compile; the daemon itself is
+        # unaffected.
+        'configure_flags': '--disable-tests --disable-bench',
+    },
     'qtum': {
         # The EVM (evmone/evmc) lives in the src/evmone git submodule; without
         # it CMake generate dies on missing evmone sources (same shape as the
