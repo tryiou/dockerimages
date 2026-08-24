@@ -57,6 +57,9 @@ COIN_BUILD_SYSTEMS = {
     # fujicoin v28+ (Bitcoin Core 28-30 base) is a CMake-only build: no
     # autogen.sh/configure, uses the depends-generated toolchain.cmake.
     'fujicoin': 'cmake_core',
+    # qtum v29+ (Bitcoin Core 29-30 base) is a CMake-only build, same as
+    # fujicoin above.
+    'qtum': 'cmake_core',
     # LBC: lbcd (Go) replaced lbrycrd (deprecated). wallet_repo/wallet_tag in
     # COIN_OVERRIDES['lbcd'] pin the lbcwallet companion binary.
     'lbcd': 'golang',
@@ -83,6 +86,12 @@ COIN_OVERRIDES = {
     },
     'pivx': {
         'post_build': ['./params/install-params.sh'],
+    },
+    'qtum': {
+        # The EVM (evmone/evmc) lives in the src/evmone git submodule; without
+        # it CMake generate dies on missing evmone sources (same shape as the
+        # Metrix Qtum fork above).
+        'git_clone_flags': ' --recurse-submodules',
     },
     'syscoin': {
         # v5.x depends set CXX_STANDARD=c++20 (needs gcc-10+; focal only ships
