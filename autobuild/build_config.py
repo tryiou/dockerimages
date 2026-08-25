@@ -169,6 +169,16 @@ COIN_OVERRIDES = {
         # CopyrightHolders arity bug) — daemon builds fine without them
         'configure_flags': '--disable-tests --disable-bench',
     },
+    'vivocore': {
+        # boost 1.64.0 pinned to dl.bintray.com (dead since 2021); archives.boost.io
+        # hosts the identical tarball (sha256 verified against depends/packages/boost.mk)
+        'depends_prep': [
+            'sed -i "s|https://dl.bintray.com/boostorg/release/|https://archives.boost.io/release/|" packages/boost.mk',
+        ],
+        # Dash-0.12.1-era daemon defaults to file-only logging (docker logs empty);
+        # stream debug.log to docker logs while keeping the file written.
+        'tail_debuglog': True,
+    },
     'dogecash': {
         # boostorg.jfrog.io is dead (reactivate-server page); use archives.boost.io
         'depends_prep': [
@@ -226,6 +236,22 @@ COIN_GIT_REFS = {
 # (e.g. BitCore: seed.bitcore.biz returns nothing). Peers probed live on the
 # P2P port (8555 for bitcore) before pinning.
 COIN_ADDNODES = {
+    # DNS seeds dead network-wide (4/5 families NXDOMAIN, remaining one serves
+    # stale IPs); peers sourced from the community bootstrap-8.2.26 vivo.conf,
+    # every entry port-verified open at bake time (2026-08-25)
+    'vivocore': [
+        '109.173.160.12:12845',
+        '144.91.99.72:12845',
+        '161.97.187.4:12845',
+        '178.18.244.223:12845',
+        '193.87.75.153:12845',
+        '37.60.248.165:12845',
+        '5.189.131.160:12845',
+        '62.171.138.11:12845',
+        '62.171.185.166:12845',
+        '82.198.187.90:12845',
+        '82.198.187.90:12853',
+    ],
     'bitcore': ['147.189.175.115', '192.99.37.121', '194.62.1.213', '194.62.29.27', '31.25.241.224'],
     'digiwage': ['119.198.113.149', '185.197.194.5', '167.237.24.110'],
     'dogecash': ['183.88.212.13', '199.241.137.81', '213.199.51.234', '173.249.63.231', '207.180.212.131', '164.68.99.67', '167.86.88.137', '144.91.78.11'],
