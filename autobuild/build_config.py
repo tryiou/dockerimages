@@ -60,6 +60,9 @@ COIN_BUILD_SYSTEMS = {
     # qtum v29+ (Bitcoin Core 29-30 base) is a CMake-only build, same as
     # fujicoin above.
     'qtum': 'cmake_core',
+    # viacoin v30.2.0 (Bitcoin Core 30 base) is a CMake-only build, same as
+    # qtum/fujicoin above; binaries viacoind/viacoin-cli (src/CMakeLists.txt).
+    'viacoin': 'cmake_core',
     # LBC: lbcd (Go) replaced lbrycrd (deprecated). wallet_repo/wallet_tag in
     # COIN_OVERRIDES['lbcd'] pin the lbcwallet companion binary.
     'lbcd': 'golang',
