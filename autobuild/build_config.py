@@ -126,6 +126,9 @@ COIN_OVERRIDES = {
     },
     'unobtanium': {
         'platform_path':   'x86_64-unknown-linux-gnu',
+        # A/B-tested 2026-08-25: without -reindex the daemon exits(1) on boot
+        # with "You need to rebuild the database using -reindex to enable
+        # auxpow support." — required for every fresh volume.
         'launch_flags':    ['-reindex'],
         'configure_flags': '--disable-tests --disable-bench',
         'depends_prep': [
@@ -213,6 +216,7 @@ COIN_ADDNODES = {
     'pocketcoin': ['38.23.148.12', '93.170.82.253', '94.190.60.151', '98.19.181.21', '188.244.43.168'],
     'terracoincore': ['167.86.96.5', '173.212.230.25', '176.58.104.46', '185.203.216.63', '208.97.57.26', '38.242.153.224', '83.221.211.116'],
     'ufo': ['151.30.52.244', '91.121.62.2'],
+    'unobtanium': ['107.170.173.232', '159.195.61.39', '172.99.188.170', '194.163.144.75', '205.209.102.70', '31.25.241.224', '66.151.242.154', '83.221.211.116', '89.185.100.229'],
 }
 
 
