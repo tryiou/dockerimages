@@ -151,6 +151,21 @@ COIN_OVERRIDES = {
         # debug.log to stdout (docker logs) while keeping the file written.
         'tail_debuglog': True,
     },
+    'vertcoin': {
+        # gmplib.org intermittently 404s the depends gmp fetch (curl --location
+        # --fail); ftp.gnu.org serves the byte-identical tarball (sha256 verified)
+        'depends_prep': [
+            'sed -i "s|\\$(package)_download_path=https://gmplib.org/download/gmp|\\$(package)_download_path=https://ftp.gnu.org/gnu/gmp|" packages/gmp.mk',
+        # boostorg.jfrog.io serves an HTML landing page instead of the tarball
+        # (sha256 gate would fail); archives.boost.io hosts identical files.
+        # Domain-prefix sed: boost.mk embeds the version as an unexpanded
+        # $($(package)_version) variable, so match only up to /release/
+            'sed -i "s|https://boostorg.jfrog.io/artifactory/main/release/|https://archives.boost.io/release/|" packages/boost.mk',
+        ],
+        # upstream v23.2 fuzz tests don't compile (test/fuzz/string.cpp:145
+        # CopyrightHolders arity bug) — daemon builds fine without them
+        'configure_flags': '--disable-tests --disable-bench',
+    },
     'dogecash': {
         # boostorg.jfrog.io is dead (reactivate-server page); use archives.boost.io
         'depends_prep': [
