@@ -63,6 +63,10 @@ COIN_BUILD_SYSTEMS = {
     # viacoin v30.2.0 (Bitcoin Core 30 base) is a CMake-only build, same as
     # qtum/fujicoin above; binaries viacoind/viacoin-cli (src/CMakeLists.txt).
     'viacoin': 'cmake_core',
+    # firo v0.14.17.x (ex-Zcoin, rebranded 2020) is a CMake-only build with the
+    # depends-generated toolchain.cmake; binaries firod/firo-cli (manifest
+    # daemon_stem=firo).
+    'firo': 'cmake_core',
     # LBC: lbcd (Go) replaced lbrycrd (deprecated). wallet_repo/wallet_tag in
     # COIN_OVERRIDES['lbcd'] pin the lbcwallet companion binary.
     'lbcd': 'golang',
@@ -179,6 +183,15 @@ COIN_OVERRIDES = {
         # stream debug.log to docker logs while keeping the file written.
         'tail_debuglog': True,
     },
+    'firo': {
+        # Dash-0.14-era daemon defaults to file-only logging (docker logs
+        # empty); stream debug.log to docker logs while keeping it written.
+        'tail_debuglog': True,
+        # firod writes a '[*]' progress-spinner tick into debug.log around
+        # every masternode-list update line (hundreds per block during the
+        # historical DMN rebuild); drop those empty frames from docker logs.
+        'tail_filter': '^[[][*][]] *$',
+    },
     'dogecash': {
         # boostorg.jfrog.io is dead (reactivate-server page); use archives.boost.io
         'depends_prep': [
@@ -279,6 +292,7 @@ def get_build_config(wallet_linux_dir):
     cfg.setdefault('source_subdir', '')
     cfg.setdefault('launch_flags', [])
     cfg.setdefault('tail_debuglog', False)
+    cfg.setdefault('tail_filter', '')
     cfg.setdefault('make_args', '')
     cfg.setdefault('git_clone_flags', '')
     cfg.setdefault('configure_flags', '')
