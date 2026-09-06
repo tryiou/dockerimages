@@ -195,6 +195,7 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && {{ cmd }} \
 {% endfor %}
   && make "USE_NATIVETOR=-" -f makefile.unix INNOVA_SPINNER=0 -j$ecores \
+{# OpenSSL 3.x auto-disables the bundled native-tor build here, so force it off and skip it entirely. #}
 {% for cmd in post_build %}
   && {{ cmd }} \
 {% endfor %}
@@ -241,6 +242,13 @@ RUN mkdir -p /opt/{{ walletLinuxDir }} \
   && cp $DISTDIR/opt/{{ walletLinuxDir }}/{{ walletLinuxDir }}{% if source_subdir %}/{{ source_subdir }}{% endif %}/depends/{{ platformPath }}/bin/* /usr/bin/ \
   {% endif %}
 {% endif %}
+{# coin-params.sh: runtime needs declared in build_config (launch flags, bootstrap peers, file-only logging), honored by the exrproxy-env session entrypoint. Coins without any of launch_flags/addnodes/tail_debuglog get no file and zero image delta. The real gate is the generate-time validation in build_config.py; the shell case below re-checks the rendered constants as defense in depth (shell expansion precedes it, so substitution payloads can only be caught in Python). Flags/peers allow only plain tokens (A-Za-z0-9_.:=-, so a future flag needing / or whitespace must widen this first); the filter value travels single-quoted (no expansion of any kind is possible) and the file line is double-quoted to match the consumer parser, so either quote type in a value is refused. Jinja comment (not shell #) because this sits inside a \-continued RUN chain. No equivalent block exists in the golang branch: no Go coin declares these keys today (get_build_config refuses them loudly if one ever does). #}
+ {% if launch_flags or addnodes or tail_debuglog %}
+  && _clean=$(printf '%s' "{{ launch_flags | join(' ') }} {{ addnodes | join(' ') }}" | tr -d ' ') && case "$_clean" in *[!A-Za-z0-9_.:=-]* ) echo "FATAL: unsafe coin param" >&2; exit 1;; esac && \
+     case '{{ tail_filter }}' in *\'* | *\"* ) echo "FATAL: unsafe tail filter" >&2; exit 1;; esac && \
+     FLAGS="{{ launch_flags | join(' ') }}" && NODES="{{ addnodes | join(' ') }}" && \
+     printf 'LAUNCH_FLAGS="%s"\nADDNODES="%s"\nFILE_LOGGING="%s"\nTAIL_FILTER="%s"\n' "$FLAGS" "$NODES" "{{ '1' if tail_debuglog else '' }}" '{{ tail_filter }}' > /opt/blockchain/coin-params.sh \
+{% endif %}
   && rm -rf /opt/{{ walletLinuxDir }}/
 
 # Write default {{ walletConfName }} (can be overridden on commandline)
@@ -276,7 +284,11 @@ EXPOSE {{ walletPort }} {{ walletRPCPort }}  {{ testnetPort }}  {{ testnetRPC }}
 {% if tail_debuglog %}
 # {{ walletName }} daemon logs to debug.log only (fPrintToConsole=false), so
 # stream it to stdout via tail -F; daemon stays PID 1 for clean shutdown.
-CMD ["/bin/bash", "-c", "tail -F /opt/blockchain/data/debug.log & exec /usr/bin/{{ walletDaemon }} -daemon=0"]
+# tail_filter optionally drops noisy lines from stdout (file keeps everything).
+# launch_flags (e.g. -reindex) are cumulative with tail: an elif here would
+# silently drop them for every tail_debuglog coin (observed: unobtanium
+# exits(1) on fresh volumes demanding -reindex that never arrived).
+CMD ["/bin/bash", "-c", "tail -F /opt/blockchain/data/debug.log{% if tail_filter %} | grep --line-buffered -vE -- '{{ tail_filter }}'{% endif %} & exec /usr/bin/{{ walletDaemon }} -daemon=0{% for flag in launch_flags %} {{ flag }}{% endfor %}"]
 {% elif launch_flags %}
 # {{ walletName }} daemon needs extra launch option(s).
 CMD ["/usr/bin/{{ walletDaemon }}", "-daemon=0"{% for flag in launch_flags %}, "{{ flag }}"{% endfor %}]
