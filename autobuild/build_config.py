@@ -59,6 +59,10 @@ COIN_BUILD_SYSTEMS = {
 
 # Keys are manifest dir_name_linux values.
 COIN_OVERRIDES = {
+    'argoneum': {
+        # No console output; stream debug.log so logs stay visible.
+        'tail_debuglog': True,
+    },
     'lynx': {
         # Needs C++20 + make NAME=lynx (per-chain -DCURRENT_CHAIN, Makefile.am).
         'buildOS': 'jammy',
