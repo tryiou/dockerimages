@@ -216,6 +216,12 @@ COIN_OVERRIDES = {
         # Node RPC is localhost-only; offset avoids wallet-RPC collision.
         'daemon_rpc_port': '19245',
     },
+    'VERGE': {
+        # depends libseccomp needs host gperf; configure needs system zlib.
+        'apt_extra': 'gperf zlib1g-dev',
+        # Fuzz binary doesn't link; --disable-shared keeps univalue static.
+        'configure_flags': '--disable-tests --disable-bench --disable-shared',
+    },
 }
 
 
